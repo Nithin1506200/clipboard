@@ -105,13 +105,17 @@ where
     }
     pub fn pop_front(&mut self) -> Option<T> {
         let node = match self.head.take() {
-            Some(node) => Some(node.borrow().val.clone()),
+            Some(node) => {
+                self.head = node.borrow().next.clone();
+
+                Some(node.borrow().val.clone())
+            }
             None => None,
         };
         if self.len == 1 {
             self.tail = None
         }
-        self.len = (self.len - 1).max(0);
+        self.len = (self.len.max(1) - 1).max(0);
         node
     }
     pub fn pop_back(&mut self) -> Option<T> {
@@ -122,7 +126,7 @@ where
         if self.len == 1 {
             self.head = None
         }
-        self.len = (self.len - 1).max(0);
+        self.len = (self.len.max(1) - 1).max(0);
         node
     }
     pub fn delete(&mut self, node: Rc<RefCell<Node<T>>>) {

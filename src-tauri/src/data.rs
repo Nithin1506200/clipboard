@@ -1,6 +1,7 @@
 use blake3::Hash;
 use regex::Regex;
-#[derive(Clone, Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Data {
     Email(String),
     PhoneNumber(String),
@@ -24,6 +25,14 @@ impl Data {
             Data::PhoneNumber(str) => str.clone(),
             Data::JsonDict(str) => serde_json::to_string(&str).unwrap_or("err str".into()),
             Data::Code { data, lang: _ } => data.clone(),
+        }
+    }
+    pub fn partial(&self) -> String {
+        match self {
+            Data::Email(e) => e.clone(),
+            Data::PhoneNumber(ph) => ph.clone(),
+            Data::JsonDict(value) => todo!(),
+            Data::Code { data, lang } => todo!(),
         }
     }
 }
