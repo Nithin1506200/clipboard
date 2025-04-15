@@ -21,6 +21,11 @@ impl<T: Clone> Node<T> {
         self.val.clone()
     }
 }
+impl<T: Clone> Node<T> {
+    pub fn set_value(&mut self, value: T) {
+        self.val = value
+    }
+}
 #[derive(Debug)]
 pub struct DoubleLinkedList<T> {
     head: Option<Arc<Mutex<Node<T>>>>,

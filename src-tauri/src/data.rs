@@ -1,11 +1,41 @@
+use std::{borrow::Cow, collections::HashMap};
+
 use blake3::Hash;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use specta::{datatype::GenericType, Type};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct MyValue(Value);
+impl MyValue {
+    pub fn into_inner(&self) -> &Value {
+        &self.0
+    }
+}
+impl Type for MyValue {
+    fn reference(
+        type_map: &mut specta::TypeCollection,
+        generics: &[specta::datatype::DataType],
+    ) -> specta::datatype::reference::Reference {
+        specta::datatype::reference::inline::<Self>(type_map, generics)
+    }
+
+    fn inline(
+        type_map: &mut specta::TypeCollection,
+        generics: specta::Generics,
+    ) -> specta::datatype::DataType {
+        let _ = generics;
+        let _ = type_map;
+        // specta::datatype::DataType::Generic(Cow::Borrowed("JSON").into())
+        specta::datatype::DataType::Unknown
+    }
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[serde(tag = "tag", content = "content")]
 pub enum Data {
     Email(String),
     PhoneNumber(String),
-    JsonDict(serde_json::Value),
+    JsonDict(MyValue),
     Code { data: String, lang: String },
 }
 impl Data {
@@ -13,7 +43,7 @@ impl Data {
         match self {
             Data::Email(email) => blake3::hash(email.as_bytes()),
             Data::PhoneNumber(phone) => blake3::hash(phone.as_bytes()),
-            Data::JsonDict(json) => blake3::hash(json.to_string().as_bytes()),
+            Data::JsonDict(json) => blake3::hash(json.into_inner().to_string().as_bytes()),
             Data::Code { data, lang: _ } => blake3::hash(data.as_bytes()),
         }
         .to_hex()
@@ -25,14 +55,6 @@ impl Data {
             Data::PhoneNumber(str) => str.clone(),
             Data::JsonDict(str) => serde_json::to_string(&str).unwrap_or("err str".into()),
             Data::Code { data, lang: _ } => data.clone(),
-        }
-    }
-    pub fn partial(&self) -> String {
-        match self {
-            Data::Email(e) => e.clone(),
-            Data::PhoneNumber(ph) => ph.clone(),
-            Data::JsonDict(value) => todo!(),
-            Data::Code { data, lang } => todo!(),
         }
     }
 }
@@ -57,7 +79,9 @@ impl From<String> for Data {
             Data::Email(value)
         } else {
             match serde_json::from_str::<serde_json::Value>(&value) {
-                Ok(serde_json::Value::Object(d)) => Self::JsonDict(serde_json::Value::Object(d)),
+                Ok(serde_json::Value::Object(d)) => {
+                    Self::JsonDict(MyValue(serde_json::Value::Object(d)))
+                }
                 _ => Data::Code {
                     data: value,
                     lang: "string".into(),

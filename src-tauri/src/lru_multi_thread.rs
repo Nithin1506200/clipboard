@@ -38,6 +38,15 @@ impl Lru {
             None
         }
     }
+    pub fn get_mutex(&self, id: &str) -> Option<Arc<Mutex<Node<Data>>>> {
+        let upgraded = self.hash.get(id).and_then(|weak| weak.upgrade());
+
+        if let Some(node) = upgraded {
+            Some(node.clone())
+        } else {
+            None
+        }
+    }
     pub fn insert(&mut self, data: String) {
         let data: Data = Data::from(data);
         let hash = data.hash();
@@ -59,6 +68,20 @@ impl Lru {
     }
     pub fn list(&self) -> &DoubleLinkedList<Data> {
         &self.list
+    }
+    pub fn delete(&mut self, id: &str) -> Result<(), ()> {
+        match self.hash.get(id).cloned() {
+            Some(node) => {
+                self.hash.remove(id);
+                if let Some(data) = node.upgrade() {
+                    self.list.delete(data);
+                    Ok(())
+                } else {
+                    Err(())
+                }
+            }
+            None => Err(()),
+        }
     }
 
     pub fn len(&self) -> usize {
