@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import "./App.css";
 import { AllData, commands, Data, Result } from "./bindings";
 import DataDisplay, { MyEditor } from "./MonacoDisplay";
+import PoolClipboardBool from "./components/PoolClipboard";
 
 function Search() {
   const [query, setQuery] = useState("");
@@ -74,6 +75,7 @@ function App() {
 
   return (
     <main>
+      <PoolClipboardBool/>
       <h1>Clipboard Data</h1>
 
       {/* Display the list of IDs */}

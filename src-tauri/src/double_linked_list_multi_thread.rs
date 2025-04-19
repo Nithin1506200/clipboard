@@ -1,8 +1,4 @@
-use std::{
-    borrow::BorrowMut as _,
-    cell::RefCell,
-    sync::{Arc, Mutex, Weak},
-};
+use std::sync::{Arc, Mutex, Weak};
 #[derive(Debug)]
 pub struct Node<T> {
     val: T,

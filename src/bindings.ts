@@ -33,6 +33,12 @@ async updateDataById(id: string, newData: Data) : Promise<Result<null, null>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getPoolClipboardState() : Promise<boolean> {
+    return await TAURI_INVOKE("get_pool_clipboard_state");
+},
+async setPoolClipboardState(value: boolean) : Promise<void> {
+    await TAURI_INVOKE("set_pool_clipboard_state", { value });
+},
 async fuzzySearch(query: string) : Promise<Result<Data[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("fuzzy_search", { query }) };
