@@ -46,6 +46,14 @@ async fuzzySearch(query: string) : Promise<Result<Data[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async formatJson(id: string) : Promise<Result<null, null>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("format_json", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -60,7 +68,8 @@ async fuzzySearch(query: string) : Promise<Result<Data[], string>> {
 /** user-defined types **/
 
 export type AllData = { id: string; data: Data }
-export type Data = { tag: "Email"; content: string } | { tag: "PhoneNumber"; content: string } | { tag: "JsonDict"; content: unknown } | { tag: "Code"; content: { data: string; lang: string } }
+export type Data = { tag: "Email"; content: string } | { tag: "PhoneNumber"; content: string } | { tag: "Code"; content: { data: string; lang: ProgrammingLanguage } }
+export type ProgrammingLanguage = "rust" | "cpp" | "c" | "javascript" | "typescript" | "python" | "go" | "java" | "kotlin" | "swift" | "ruby" | "php" | "csharp" | "html" | "css" | "sql" | "json" | "markdown" | "string"
 
 /** tauri-specta globals **/
 

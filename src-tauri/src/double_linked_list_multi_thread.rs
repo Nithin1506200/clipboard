@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, RwLock, Weak};
 #[derive(Debug)]
 pub struct Node<T> {
     val: T,
-    next: Option<Arc<Mutex<Node<T>>>>,
-    prev: Option<Weak<Mutex<Node<T>>>>,
+    next: Option<Arc<RwLock<Node<T>>>>,
+    prev: Option<Weak<RwLock<Node<T>>>>,
 }
 impl<T: Clone> Node<T> {
     pub fn new(val: T) -> Self {
@@ -24,8 +24,8 @@ impl<T: Clone> Node<T> {
 }
 #[derive(Debug)]
 pub struct DoubleLinkedList<T> {
-    head: Option<Arc<Mutex<Node<T>>>>,
-    tail: Option<Arc<Mutex<Node<T>>>>,
+    head: Option<Arc<RwLock<Node<T>>>>,
+    tail: Option<Arc<RwLock<Node<T>>>>,
     len: usize,
 }
 impl<T> DoubleLinkedList<T>
@@ -39,12 +39,12 @@ where
             len: 0,
         }
     }
-    pub fn peak_front(&self) -> Option<Arc<Mutex<Node<T>>>> {
+    pub fn peak_front(&self) -> Option<Arc<RwLock<Node<T>>>> {
         self.head.clone()
     }
-    pub fn push_front_rc(&mut self, node: Arc<Mutex<Node<T>>>) {
+    pub fn push_front_rc(&mut self, node: Arc<RwLock<Node<T>>>) {
         {
-            let mut node = node.lock().unwrap();
+            let mut node = node.write().unwrap();
             node.prev = None;
             node.next = None
         }
@@ -54,10 +54,10 @@ where
         } else {
             match self.head.take() {
                 Some(ptr) => {
-                    let mut node_ = node.lock().unwrap();
+                    let mut node_ = node.write().unwrap();
                     node_.next = Some(ptr.clone());
                     self.head = Some(node.clone());
-                    ptr.lock().unwrap().prev = Some(Arc::downgrade(&node));
+                    ptr.write().unwrap().prev = Some(Arc::downgrade(&node));
                 }
                 None => self.head = Some(node.clone()),
             }
@@ -67,46 +67,48 @@ where
     pub fn push_front(&mut self, value: T) {
         let mut node = Node::new(value);
         if self.len == 0 {
-            let n = Arc::new(Mutex::new(node));
+            let n = Arc::new(RwLock::new(node));
             self.head = Some(n.clone());
             self.tail = Some(n.clone());
         } else {
             match self.head.take() {
                 Some(ptr) => {
                     node.next = Some(ptr.clone());
-                    let n = Arc::new(Mutex::new(node));
+                    let n = Arc::new(RwLock::new(node));
                     self.head = Some(n.clone());
-                    ptr.lock().unwrap().prev = Some(Arc::downgrade(&n));
+                    ptr.write().unwrap().prev = Some(Arc::downgrade(&n));
                 }
-                None => self.head = Some(Arc::new(Mutex::new(node))),
+                None => self.head = Some(Arc::new(RwLock::new(node))),
             }
         }
         self.len += 1;
     }
+    #[allow(dead_code)]
     pub fn push_back(&mut self, value: T) {
         let mut node = Node::new(value);
         if self.len == 0 {
-            let n = Arc::new(Mutex::new(node));
+            let n = Arc::new(RwLock::new(node));
             self.head = Some(n.clone());
             self.tail = Some(n.clone());
         } else {
             match self.tail.take() {
                 Some(ptr) => {
                     node.prev = Some(Arc::downgrade(&ptr));
-                    let n = Arc::new(Mutex::new(node));
+                    let n = Arc::new(RwLock::new(node));
                     self.tail = Some(n.clone());
-                    ptr.lock().unwrap().next = self.tail.clone();
+                    ptr.write().unwrap().next = self.tail.clone();
                 }
 
-                None => self.tail = Some(Arc::new(Mutex::new(node))),
+                None => self.tail = Some(Arc::new(RwLock::new(node))),
             }
         }
         self.len += 1;
     }
+    #[allow(dead_code)]
     pub fn pop_front(&mut self) -> Option<T> {
         let node = match self.head.take() {
             Some(node) => {
-                let node = node.lock().unwrap();
+                let node = node.write().unwrap();
                 self.head = node.next.clone();
                 Some(node.val.clone())
             }
@@ -121,7 +123,7 @@ where
     }
     pub fn pop_back(&mut self) -> Option<T> {
         let node = match self.tail.take() {
-            Some(node) => Some(node.lock().unwrap().val.clone()),
+            Some(node) => Some(node.read().unwrap().val.clone()),
             None => None,
         };
         if self.len == 1 {
@@ -130,8 +132,8 @@ where
         self.len = (self.len.max(1) - 1).max(0);
         node
     }
-    pub fn delete(&mut self, node: Arc<Mutex<Node<T>>>) {
-        let node = node.lock().unwrap();
+    pub fn delete(&mut self, node: Arc<RwLock<Node<T>>>) {
+        let node = node.write().unwrap();
         let prev = node.prev.clone();
         let next = node.next.clone();
         self.len -= 1;
@@ -148,9 +150,9 @@ where
                 None => self.tail = None,
             },
             (Some(prev), Some(next)) => {
-                next.lock().unwrap().prev = Some(prev.clone());
+                next.write().unwrap().prev = Some(prev.clone());
                 match prev.upgrade() {
-                    Some(prev) => prev.lock().unwrap().next = Some(next.clone()),
+                    Some(prev) => prev.write().unwrap().next = Some(next.clone()),
                     None => self.head = Some(next.clone()),
                 }
             }
@@ -162,7 +164,7 @@ where
 }
 
 pub struct DoubleLinkedListIter<T> {
-    current: Option<Arc<Mutex<Node<T>>>>,
+    current: Option<Arc<RwLock<Node<T>>>>,
 }
 
 impl<T: Clone> Iterator for DoubleLinkedListIter<T> {
@@ -170,7 +172,7 @@ impl<T: Clone> Iterator for DoubleLinkedListIter<T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(node_arc) = self.current.take() {
-            let node = node_arc.lock().unwrap();
+            let node = node_arc.read().unwrap();
             self.current = node.next.clone();
             Some(node.val.clone())
         } else {
@@ -191,14 +193,14 @@ impl<T: Clone> DoubleLinkedList<T> {
 fn test_push_and_pop_front() {
     let mut list = DoubleLinkedList::new();
 
-    list.push_front(Arc::new(Mutex::new(Node::new(1))));
-    list.push_front(Arc::new(Mutex::new(Node::new(2))));
-    list.push_front(Arc::new(Mutex::new(Node::new(3))));
+    list.push_front(Arc::new(RwLock::new(Node::new(1))));
+    list.push_front(Arc::new(RwLock::new(Node::new(2))));
+    list.push_front(Arc::new(RwLock::new(Node::new(3))));
 
     assert_eq!(list.len(), 3);
 
     if let Some(node) = list.pop_front() {
-        let val = node.lock().unwrap().val.clone();
+        let val = node.read().unwrap().val.clone();
         assert_eq!(val, 3);
     } else {
         panic!("Expected Some(3) but got None");
@@ -206,14 +208,14 @@ fn test_push_and_pop_front() {
     println!("{:?}", &list);
 
     if let Some(node) = list.pop_front() {
-        let val = node.lock().unwrap().val.clone();
+        let val = node.read().unwrap().val.clone();
         assert_eq!(val, 2);
     } else {
         panic!("Expected Some(2) but got None");
     }
 
     if let Some(node) = list.pop_front() {
-        let val = node.lock().unwrap().val.clone();
+        let val = node.read().unwrap().val.clone();
         assert_eq!(val, 1);
     } else {
         panic!("Expected Some(1) but got None");
@@ -227,15 +229,15 @@ fn test_push_and_pop_front() {
 fn test_multithreaded_push_and_pop() {
     use std::thread;
 
-    let list = Arc::new(Mutex::new(DoubleLinkedList::new()));
+    let list = Arc::new(RwLock::new(DoubleLinkedList::new()));
 
     let mut handles = vec![];
 
     for i in 0..10 {
         let list_clone = Arc::clone(&list);
         handles.push(thread::spawn(move || {
-            let node = Arc::new(Mutex::new(Node::new(i)));
-            let mut list = list_clone.lock().unwrap();
+            let node = Arc::new(RwLock::new(Node::new(i)));
+            let mut list = list_clone.write().unwrap();
             list.push_front_rc(node);
         }));
     }
@@ -244,13 +246,13 @@ fn test_multithreaded_push_and_pop() {
         handle.join().unwrap();
     }
 
-    assert_eq!(list.lock().unwrap().len(), 10);
+    assert_eq!(list.read().unwrap().len(), 10);
 
     let mut pop_handles = vec![];
     for _ in 0..10 {
         let list_clone = Arc::clone(&list);
         pop_handles.push(thread::spawn(move || {
-            let mut list = list_clone.lock().unwrap();
+            let mut list = list_clone.write().unwrap();
             list.pop_front()
         }));
     }
@@ -265,5 +267,5 @@ fn test_multithreaded_push_and_pop() {
     }
 
     assert_eq!(results.len(), 10);
-    assert_eq!(list.lock().unwrap().len(), 0);
+    assert_eq!(list.read().unwrap().len(), 0);
 }

@@ -1,13 +1,12 @@
+use crate::data::{Data, ProgrammingLanguage};
+use crate::{ClipboardHistory, PoolClipboard};
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher as _;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-
-use crate::data::Data;
-use crate::{ClipboardHistory, PoolClipboard};
 use std::sync::{Arc, RwLock};
 use std::vec;
-use tokio::sync::Mutex as TokioMutex;
+
 #[tauri::command]
 #[specta::specta]
 pub fn get_all_id(
@@ -106,9 +105,36 @@ pub async fn update_data_by_id(
 ) -> Result<(), ()> {
     let lru = state.data.write().unwrap();
     if let Some(data) = lru.get_mutex(id) {
-        let mut data = data.lock().unwrap();
+        let mut data = data.write().unwrap();
         (*data).set_value(new_data);
         Ok(())
+    } else {
+        Err(())
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn format_json(
+    id: &str,
+    state: tauri::State<'_, Arc<ClipboardHistory>>,
+) -> Result<(), ()> {
+    let lru = state.data.write().unwrap();
+    if let Some(data) = lru.get_mutex(id) {
+        let mut data_ = data.write().unwrap();
+        match data_.val() {
+            Data::Code {
+                data,
+                lang: ProgrammingLanguage::JSON,
+            } => {
+                data_.set_value(Data::Code {
+                    data: jsonformat::format(&data, jsonformat::Indentation::TwoSpace),
+                    lang: ProgrammingLanguage::JSON,
+                });
+                Ok(())
+            }
+            _ => Err(()),
+        }
     } else {
         Err(())
     }

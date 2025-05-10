@@ -1,12 +1,12 @@
 use crate::data::*;
 use crate::double_linked_list_multi_thread::{DoubleLinkedList, Node};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, RwLock, Weak};
 
 #[derive(Debug)]
 pub struct Lru {
     list: DoubleLinkedList<Data>,
-    hash: HashMap<String, Weak<Mutex<Node<Data>>>>,
+    hash: HashMap<String, Weak<RwLock<Node<Data>>>>,
     size: usize,
 }
 
@@ -31,14 +31,14 @@ impl Lru {
         let upgraded = self.hash.get(id).and_then(|weak| weak.upgrade());
 
         if let Some(node) = upgraded {
-            let data = node.lock().unwrap().val().clone();
+            let data = node.read().unwrap().val().clone();
 
             Some(data)
         } else {
             None
         }
     }
-    pub fn get_mutex(&self, id: &str) -> Option<Arc<Mutex<Node<Data>>>> {
+    pub fn get_mutex(&self, id: &str) -> Option<Arc<RwLock<Node<Data>>>> {
         let upgraded = self.hash.get(id).and_then(|weak| weak.upgrade());
 
         if let Some(node) = upgraded {
@@ -50,7 +50,7 @@ impl Lru {
     pub fn insert(&mut self, data: String) {
         let data: Data = Data::from(data);
         let hash = data.hash();
-        match self.hash.get(&hash).map_or(None, |e| e.upgrade()) {
+        match self.hash.get_mut(&hash).map_or(None, |e| e.upgrade()) {
             Some(node) => {
                 // let node = node.lock().unwrap();
                 self.list.delete(node.clone());
@@ -103,19 +103,19 @@ mod test {
         lru.insert("nithin@gmail.com".into());
         assert_eq!(lru.len(), 2);
         assert_eq!(
-            lru.list.peak_front().unwrap().lock().unwrap().val().val(),
+            lru.list.peak_front().unwrap().read().unwrap().val().val(),
             String::from("nithin@gmail.com")
         );
         lru.insert("9449352583".into());
         assert_eq!(lru.len(), 3);
         assert_eq!(
-            lru.list.peak_front().unwrap().lock().unwrap().val().val(),
+            lru.list.peak_front().unwrap().read().unwrap().val().val(),
             String::from("9449352583")
         );
         lru.insert("94493525832".into());
         assert_eq!(lru.len(), 3);
         assert_eq!(
-            lru.list.peak_front().unwrap().lock().unwrap().val().val(),
+            lru.list.peak_front().unwrap().read().unwrap().val().val(),
             String::from("94493525832")
         );
         // println!("{:#?}", lru)

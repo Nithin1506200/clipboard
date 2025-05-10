@@ -1,9 +1,11 @@
 use arboard::Clipboard;
 use commands::{
-    delete_by_id, fuzzy_search, get_all_data, get_all_id, get_by_id, get_pool_clipboard_state,
-    set_pool_clipboard_state, update_data_by_id,
+    delete_by_id, format_json, fuzzy_search, get_all_data, get_all_id, get_by_id,
+    get_pool_clipboard_state, set_pool_clipboard_state, update_data_by_id,
 };
-use common::events::POOL_CLIPBOARD_UPDATED;
+use common::EventNames;
+use popup::{popup_show, PopupWindow};
+use specta::TypeCollection;
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use std::{
     sync::{Arc, RwLock},
@@ -14,10 +16,9 @@ use tauri_specta::{collect_commands, Builder};
 mod commands;
 mod common;
 mod data;
-mod double_linked_list;
 mod double_linked_list_multi_thread;
-mod lru;
 mod lru_multi_thread;
+mod popup;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -51,7 +52,9 @@ impl PoolClipboard {
 
     pub fn set(&mut self, new_value: bool) {
         self.value = new_value;
-        let _ = self.app_handle.emit(POOL_CLIPBOARD_UPDATED, self.value);
+        let _ = self
+            .app_handle
+            .emit(&EventNames::PoolClipboardUpdated.to_string(), self.value);
     }
 
     pub fn get(&self) -> bool {
@@ -74,16 +77,23 @@ pub fn run() {
             get_pool_clipboard_state,
             set_pool_clipboard_state,
             fuzzy_search,
+            format_json
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
-    builder
-        .export(
-            Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
-        )
-        .expect("Failed to export typescript bindings");
-
+    {
+        builder
+            .export(
+                Typescript::default().bigint(BigIntExportBehavior::Number),
+                "../src/bindings.ts",
+            )
+            .expect("Failed to export typescript bindings");
+        let mut types = TypeCollection::default();
+        types.register::<EventNames>();
+        Typescript::default()
+            .export_to("../src/bindings_defaults.ts", &types)
+            .unwrap();
+    }
     tauri::Builder::default()
         // .manage(history)
         // .manage(pool_clipboard)
@@ -95,10 +105,11 @@ pub fn run() {
             let history = Arc::new(ClipboardHistory::new());
             let history_clone = Arc::clone(&history);
             app.manage(history);
+            app.manage(popup::PopupWindow::default());
             let app_handle = app.handle();
             let pool_clipboard = Arc::new(RwLock::new(PoolClipboard::new(app_handle.clone())));
             let pool_clipboard_clone = Arc::clone(&pool_clipboard);
-
+            popup_show(app.app_handle().clone());
             thread::spawn(move || {
                 let mut clipboard = Clipboard::new().expect("Failed to access Clipboard");
                 let mut last_value = String::new();

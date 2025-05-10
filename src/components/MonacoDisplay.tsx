@@ -1,8 +1,7 @@
 import React from "react";
-import { Data } from "./bindings";
+import { Data } from "../bindings";
 import { Editor, EditorProps } from "@monaco-editor/react";
-import { CopyIcon, DeleteIcon } from "./assets/Icons";
-type copyFn = (val: string) => void;
+import { CopyIcon, DeleteIcon } from "../assets/Icons";
 interface MyEditorProps extends Omit<EditorProps, "theme"> {
   onCopy?: () => void;
   onDelete?: () => void;
@@ -73,11 +72,11 @@ function dataSegregate(data: Data) {
         return <MyEditor value={data.content} />;
       }
     }
-    case "JsonDict": {
-      {
-        return <MyEditor value={data.content as string} language="json" />;
-      }
-    }
+    // case "JsonDict": {
+    //   {
+    //     return <MyEditor value={data.content as string} language="json" />;
+    //   }
+    // }
     case "Code": {
       {
         return (
